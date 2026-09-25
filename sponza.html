@@ -1,0 +1,1879 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Sponza Axion test</title>
+        <style>
+            html, body {
+                margin: 0;
+                height: 100%;
+                overflow: hidden;
+                background: rgb(7, 10, 16);
+                font: 12px sans-serif;
+            }
+ 
+            canvas {
+                display: block;
+                width: 100%;
+                height: 100%;
+            }
+ 
+            #msg {
+                position: fixed;
+                left: 50px;
+                top: 12px;
+                color: rgb(206, 216, 228);
+                font-size: 13px;
+                text-shadow: 0 1px 2px rgb(0, 0, 0);
+                pointer-events: none;
+            }
+ 
+            #status {
+                position: fixed;
+                left: 10px;
+                bottom: 8px;
+                color: rgb(151, 166, 187);
+                font-size: 11px;
+                text-shadow: 0 1px 2px rgb(0, 0, 0);
+                pointer-events: none;
+            }
+ 
+            #tab {
+                position: fixed;
+                left: 10px;
+                top: 8px;
+                width: 30px;
+                height: 26px;
+                z-index: 3;
+                padding: 0;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 6px;
+                background: rgba(14, 18, 27, 0.86);
+                color: rgb(206, 216, 228);
+                font-size: 16px;
+                line-height: 24px;
+                cursor: pointer;
+            }
+ 
+            #tab:hover {
+                background: rgba(41, 51, 69, 0.95);
+            }
+ 
+            /* Sliding menu */
+            #panel {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 250px;
+                z-index: 2;
+                background: rgba(10, 13, 20, 0.93);
+                color: rgb(206, 216, 228);
+                border-right: 1px solid rgba(255, 255, 255, 0.11);
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+            }
+ 
+            #panel.open {
+                transform: translateX(0);
+            }
+ 
+            #list {
+                position: absolute;
+                inset: 0;
+                padding: 44px 20px 14px 14px;
+                overflow-y: auto;
+                scrollbar-width: none;
+            }
+ 
+            #list::-webkit-scrollbar {
+                display: none;
+            }
+ 
+            #list h3 {
+                margin: 14px 0 6px;
+                font-size: 11px;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: rgb(127, 143, 164);
+            }
+ 
+            .row {
+                margin: 7px 0;
+            }
+ 
+            .row label {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 2px;
+            }
+ 
+            .row label span {
+                color: rgb(143, 178, 254);
+            }
+ 
+            .row input[type=range] {
+                width: 100%;
+                margin: 0;
+            }
+ 
+            .check {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin: 7px 0;
+                cursor: pointer;
+            }
+ 
+            .btn {
+                width: 100%;
+                margin-top: 8px;
+                padding: 6px;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 5px;
+                background: rgb(27, 34, 49);
+                color: rgb(206, 216, 228);
+                cursor: pointer;
+            }
+ 
+            .btn:hover {
+                background: rgb(38, 48, 67);
+            }
+ 
+            /* Custom scroll bar: thin pixel strip, wider while scrolling or hovered */
+            #bar {
+                position: absolute;
+                right: 2px;
+                top: 40px;
+                bottom: 6px;
+                width: 14px;
+            }
+ 
+            #thumb {
+                position: absolute;
+                right: 0;
+                width: 3px;
+                min-height: 24px;
+                border-radius: 1px;
+                background-color: rgb(96, 113, 139);
+                background-image:
+                    linear-gradient(90deg, rgba(0, 0, 0, 0.27) 50%, transparent 50%),
+                    linear-gradient(rgba(255, 255, 255, 0.13) 50%, transparent 50%);
+                background-size: 2px 2px, 4px 4px;
+                image-rendering: pixelated;
+                transition: width 0.18s ease, background-color 0.18s ease;
+                cursor: pointer;
+            }
+ 
+            #bar:hover #thumb,
+            #bar.active #thumb {
+                width: 9px;
+                background-color: rgb(131, 152, 187);
+            }
+ 
+            #bar.hide {
+                display: none;
+            }
+ 
+            /* Collapsible sections */
+            .sec {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+            }
+ 
+            .sec-head {
+                display: block;
+                width: 100%;
+                padding: 9px 2px;
+                border: 0;
+                background: none;
+                color: rgb(171, 186, 207);
+                font: 11px sans-serif;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                text-align: left;
+                cursor: pointer;
+            }
+ 
+            .sec-head:hover {
+                color: rgb(222, 231, 243);
+            }
+ 
+            .arrow {
+                display: inline-block;
+                width: 14px;
+                transition: transform 0.15s ease;
+            }
+ 
+            .sec.open .arrow {
+                transform: rotate(90deg);
+            }
+ 
+            .sec-body {
+                display: none;
+                padding: 0 2px 10px;
+            }
+ 
+            .sec.open .sec-body {
+                display: block;
+            }
+ 
+            select {
+                width: 100%;
+                padding: 3px;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 4px;
+                background: rgb(21, 27, 39);
+                color: rgb(206, 216, 228);
+            }
+ 
+            .reset {
+                margin-top: 14px;
+            }
+ 
+            /* Controls that don't apply in the current mode */
+            .off {
+                opacity: 0.38;
+                pointer-events: none;
+            }
+ 
+            .info {
+                margin: 4px 0 8px;
+                color: rgb(127, 143, 164);
+                font-size: 11px;
+            }
+        </style>
+        <script src="webgpu.js?v=sponza23"></script>
+    </head>
+    <body>
+        <canvas id="c"></canvas>
+        <div id="msg">loading…</div>
+        <div id="status">collision: waiting</div>
+        <button id="tab" title="Visual settings">&#9776;</button>
+        <div id="panel">
+            <div id="list"></div>
+            <div id="bar"><div id="thumb"></div></div>
+        </div>
+ 
+        <script src="https://cdn.jsdelivr.net/gh/SwankyMan88/Axion@v0.9.7/dist/axion.min.js"></script><!-- My 3D engine Axion -->
+        <script src="https://cdn.jsdelivr.net/gh/SwankyMan88/Axion@v0.7.0/assets/sponza.js"></script><!-- The Sponza test in JS form -->
+ 
+        <!-- Shared state -->
+        <script>
+            (function () {
+                var sz = window.sz = {};
+ 
+                sz.msg = document.getElementById("msg");
+                sz.canvas = document.getElementById("c");
+                sz.panel = document.getElementById("panel");
+                sz.list = document.getElementById("list");
+ 
+                sz.app = null;
+                sz.ready = false;
+ 
+                // Small line in the corner saying what collision is doing
+                sz.statusEl = document.getElementById("status");
+                sz.status = function (text) {
+                    sz.statusEl.textContent = "collision: " + text;
+                };
+ 
+                // Any uncaught error shows up on screen instead of vanishing
+                window.addEventListener("error", function (e) {
+                    sz.statusEl.textContent = "error: " + e.message + " (line " + e.lineno + ")";
+                });
+                window.addEventListener("unhandledrejection", function (e) {
+                    var r = e.reason;
+                    sz.statusEl.textContent = "error: " + (r && r.message ? r.message : r);
+                });
+ 
+                // A clean copy of the page (menu not built yet) for the fullscreen window
+                sz.pageHtml = "";
+                document.addEventListener("DOMContentLoaded", function () {
+                    sz.pageHtml = "<!DOCTYPE html>" + document.documentElement.outerHTML;
+                });
+ 
+                // Camera / player. x, y, z is the eye in fly mode and the feet in walk mode.
+                sz.cam = {
+                    mode: "walk",
+                    x: 9.2,
+                    y: 1.7,
+                    z: -0.3,
+                    yaw: Math.PI / 2,
+                    pitch: 0.02,
+                    vx: 0,
+                    vy: 0,
+                    vz: 0,
+                    eye: 1.6,
+                    eyeY: 1.7,
+                    ground: false,
+                    flySpeed: 4,
+                    walkSpeed: 3.2,
+                    sens: 1,
+                    keys: {},
+                    jumpHeld: false,
+                    locked: false,
+                    drag: false
+                };
+ 
+                sz.hint = function () {
+                    if (!sz.ready) {
+                        return;
+                    }
+                    var how = sz.cam.mode === "walk"
+                        ? "WASD walk · Space jump · Shift run"
+                        : "WASD fly · Space / Shift up and down";
+                    if (sz.cam.locked) {
+                        sz.msg.textContent = how + " · Esc to release the mouse";
+                    } else {
+                        sz.msg.textContent = "Click to look around · " + how;
+                    }
+                };
+            })();
+        </script>
+ 
+        <!-- Input -->
+        <script>
+            (function () {
+                var sz = window.sz;
+                var cam = sz.cam;
+ 
+                window.addEventListener("keydown", function (e) {
+                    cam.keys[e.code] = true;
+                    if (e.code === "Space") {
+                        e.preventDefault();
+                    }
+                });
+ 
+                window.addEventListener("keyup", function (e) {
+                    cam.keys[e.code] = false;
+                });
+ 
+                window.addEventListener("blur", function () {
+                    cam.keys = {};
+                });
+ 
+                sz.canvas.addEventListener("mousedown", function (e) {
+                    if (e.button !== 0) {
+                        return;
+                    }
+                    sz.panel.classList.remove("open");
+ 
+                    // Drag-to-look stays on in case the page won't allow a lock
+                    cam.drag = true;
+ 
+                    var canvas = sz.canvas;
+                    var req = canvas.requestPointerLock ? canvas.requestPointerLock() : null;
+                    if (req && req.catch) {
+                        req.catch(function () {});
+                    }
+                });
+ 
+                window.addEventListener("mouseup", function () {
+                    cam.drag = false;
+                });
+ 
+                document.addEventListener("pointerlockchange", function () {
+                    cam.locked = document.pointerLockElement === sz.canvas;
+                    sz.hint();
+                });
+ 
+                window.addEventListener("mousemove", function (e) {
+                    if (!cam.locked && !cam.drag) {
+                        return;
+                    }
+                    var k = 0.0024 * cam.sens;
+                    cam.yaw -= e.movementX * k;
+                    cam.pitch -= e.movementY * k;
+                    cam.pitch = Math.max(-1.55, Math.min(1.55, cam.pitch));
+                });
+            })();
+        </script>
+ 
+        <!-- Collision builder, run in a background worker.
+             Not a regular script, so the page never runs it or rewrites it. -->
+        <script type="text/js-worker" id="physWorker">
+            // Receives the triangles (9 floats each) and sends back per-triangle data
+            // plus a flat grid: cell c holds items[start[c]] to items[start[c + 1]]
+            onmessage = function (e) {
+                var tris = e.data.tris;
+                var cell = e.data.cell;
+                var n = tris.length / 9;
+                var up = new Float32Array(n);
+                var box = new Float32Array(n * 6);
+                var minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+                var t, o, b;
+ 
+                for (t = 0; t < n; t++) {
+                    o = t * 9;
+                    var ax = tris[o], ay = tris[o + 1], az = tris[o + 2];
+                    var bx = tris[o + 3], by = tris[o + 4], bz = tris[o + 5];
+                    var cx = tris[o + 6], cy = tris[o + 7], cz = tris[o + 8];
+ 
+                    var ux = bx - ax, uy = by - ay, uz = bz - az;
+                    var wx = cx - ax, wy = cy - ay, wz = cz - az;
+                    var nx = uy * wz - uz * wy;
+                    var ny = uz * wx - ux * wz;
+                    var nz = ux * wy - uy * wx;
+                    var len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+ 
+                    // Degenerate triangles are marked and left out of the grid
+                    up[t] = len < 1e-9 ? -1 : Math.abs(ny) / len;
+ 
+                    b = t * 6;
+                    box[b] = Math.min(ax, bx, cx);
+                    box[b + 1] = Math.min(ay, by, cy);
+                    box[b + 2] = Math.min(az, bz, cz);
+                    box[b + 3] = Math.max(ax, bx, cx);
+                    box[b + 4] = Math.max(ay, by, cy);
+                    box[b + 5] = Math.max(az, bz, cz);
+ 
+                    if (box[b] < minX) { minX = box[b]; }
+                    if (box[b + 3] > maxX) { maxX = box[b + 3]; }
+                    if (box[b + 2] < minZ) { minZ = box[b + 2]; }
+                    if (box[b + 5] > maxZ) { maxZ = box[b + 5]; }
+                }
+ 
+                var gx = Math.floor(minX / cell);
+                var gz = Math.floor(minZ / cell);
+                var sx = Math.floor(maxX / cell) - gx + 1;
+                var sz = Math.floor(maxZ / cell) - gz + 1;
+                var start = new Uint32Array(sx * sz + 1);
+                var pass, ix, iz;
+ 
+                // First pass counts the triangles per cell, the second fills them in
+                var fill = null;
+                var cursor = null;
+                for (pass = 0; pass < 2; pass++) {
+                    for (t = 0; t < n; t++) {
+                        if (up[t] < 0) {
+                            continue;
+                        }
+                        b = t * 6;
+                        var x0 = Math.floor(box[b] / cell) - gx;
+                        var x1 = Math.floor(box[b + 3] / cell) - gx;
+                        var z0 = Math.floor(box[b + 2] / cell) - gz;
+                        var z1 = Math.floor(box[b + 5] / cell) - gz;
+                        for (ix = x0; ix <= x1; ix++) {
+                            for (iz = z0; iz <= z1; iz++) {
+                                var c = ix * sz + iz;
+                                if (pass === 0) {
+                                    start[c + 1]++;
+                                } else {
+                                    fill[cursor[c]++] = t;
+                                }
+                            }
+                        }
+                    }
+                    if (pass === 0) {
+                        for (c = 0; c < sx * sz; c++) {
+                            start[c + 1] += start[c];
+                        }
+                        fill = new Uint32Array(start[sx * sz]);
+                        cursor = start.slice(0, sx * sz);
+                    }
+                }
+ 
+                postMessage({
+                    tris: tris, box: box, up: up, start: start, items: fill,
+                    gx: gx, gz: gz, sx: sx, sz: sz, count: n
+                }, [tris.buffer, box.buffer, up.buffer, start.buffer, fill.buffer]);
+            };
+        </script>
+ 
+        <!-- Collision and physics -->
+        <script>
+            (function () {
+                var sz = window.sz;
+ 
+                var phys = sz.phys = {
+                    ready: false,
+                    cell: 1,
+                    tris: null,      // 9 floats per triangle
+                    box: null,       // min xyz, max xyz per triangle
+                    up: null,        // normal y (absolute) per triangle, -1 if degenerate
+                    start: null,     // grid: cell c holds items[start[c]] to items[start[c + 1]]
+                    items: null,
+                    stamp: null,
+                    mark: 0,
+                    found: [],
+                    gravity: 18,
+                    jump: 5.2,
+                    step: 0.45,
+                    radius: 0.3,
+                    spheres: [0.65, 1.05, 1.45]
+                };
+ 
+                // Pack the model's triangles into one array (9 floats each).
+                // Alpha-tested parts (leaves, chains) are left out: you walk through those.
+                phys.pack = function (model) {
+                    var prims = [];
+                    var total = 0;
+                    var i;
+                    for (i = 0; i < model.primitives.length; i++) {
+                        var p = model.primitives[i];
+                        var mat = model.materials[p.material];
+                        if (mat && mat.alphaMode === "MASK") {
+                            continue;
+                        }
+                        prims.push(p.geometry);
+                        total += p.geometry.indices.length / 3;
+                    }
+ 
+                    var tris = new Float32Array(total * 9);
+                    var o = 0;
+                    for (i = 0; i < prims.length; i++) {
+                        var v = prims[i].vertices;
+                        var idx = prims[i].indices;
+                        for (var k = 0; k < idx.length; k++) {
+                            var src = idx[k] * 8;
+                            tris[o] = v[src];
+                            tris[o + 1] = v[src + 1];
+                            tris[o + 2] = v[src + 2];
+                            o += 3;
+                        }
+                    }
+                    return tris;
+                };
+ 
+                function finish(d, done) {
+                    phys.tris = d.tris;
+                    phys.box = d.box;
+                    phys.up = d.up;
+                    phys.start = d.start;
+                    phys.items = d.items;
+                    phys.gx = d.gx;
+                    phys.gz = d.gz;
+                    phys.sx = d.sx;
+                    phys.sz = d.sz;
+                    phys.count = d.count;
+                    phys.stamp = new Uint32Array(d.count);
+                    phys.ready = true;
+                    sz.status("ready, " + d.count + " triangles");
+                    if (done) {
+                        done();
+                    }
+                }
+ 
+                // Fallback: the same build as the worker, on the page in small slices
+                function buildHere(tris, done, fail) {
+                    var cell = phys.cell;
+                    var n = tris.length / 9;
+                    var d = {
+                        tris: tris,
+                        box: new Float32Array(n * 6),
+                        up: new Float32Array(n),
+                        count: n
+                    };
+                    var bounds = [Infinity, Infinity, -Infinity, -Infinity];
+                    var cursor = null;
+                    var stage = 0;
+                    var t = 0;
+ 
+                    // Stage 0: normals and boxes. Stage 1: count per cell. Stage 2: fill cells.
+                    function tri(t) {
+                        var box = d.box;
+                        var b = t * 6;
+                        if (stage === 0) {
+                            var o = t * 9;
+                            var ax = tris[o], ay = tris[o + 1], az = tris[o + 2];
+                            var bx = tris[o + 3], by = tris[o + 4], bz = tris[o + 5];
+                            var cx = tris[o + 6], cy = tris[o + 7], cz = tris[o + 8];
+                            var ux = bx - ax, uy = by - ay, uz = bz - az;
+                            var wx = cx - ax, wy = cy - ay, wz = cz - az;
+                            var nx = uy * wz - uz * wy;
+                            var ny = uz * wx - ux * wz;
+                            var nz = ux * wy - uy * wx;
+                            var len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+                            d.up[t] = len < 1e-9 ? -1 : Math.abs(ny) / len;
+                            box[b] = Math.min(ax, bx, cx);
+                            box[b + 1] = Math.min(ay, by, cy);
+                            box[b + 2] = Math.min(az, bz, cz);
+                            box[b + 3] = Math.max(ax, bx, cx);
+                            box[b + 4] = Math.max(ay, by, cy);
+                            box[b + 5] = Math.max(az, bz, cz);
+                            bounds[0] = Math.min(bounds[0], box[b]);
+                            bounds[1] = Math.min(bounds[1], box[b + 2]);
+                            bounds[2] = Math.max(bounds[2], box[b + 3]);
+                            bounds[3] = Math.max(bounds[3], box[b + 5]);
+                            return;
+                        }
+                        if (d.up[t] < 0) {
+                            return;
+                        }
+                        var x0 = Math.floor(box[b] / cell) - d.gx;
+                        var x1 = Math.floor(box[b + 3] / cell) - d.gx;
+                        var z0 = Math.floor(box[b + 2] / cell) - d.gz;
+                        var z1 = Math.floor(box[b + 5] / cell) - d.gz;
+                        for (var ix = x0; ix <= x1; ix++) {
+                            for (var iz = z0; iz <= z1; iz++) {
+                                var c = ix * d.sz + iz;
+                                if (stage === 1) {
+                                    d.start[c + 1]++;
+                                } else {
+                                    d.items[cursor[c]++] = t;
+                                }
+                            }
+                        }
+                    }
+ 
+                    function nextStage() {
+                        if (stage === 0) {
+                            d.gx = Math.floor(bounds[0] / cell);
+                            d.gz = Math.floor(bounds[1] / cell);
+                            d.sx = Math.floor(bounds[2] / cell) - d.gx + 1;
+                            d.sz = Math.floor(bounds[3] / cell) - d.gz + 1;
+                            d.start = new Uint32Array(d.sx * d.sz + 1);
+                        } else if (stage === 1) {
+                            var cells = d.sx * d.sz;
+                            for (var c = 0; c < cells; c++) {
+                                d.start[c + 1] += d.start[c];
+                            }
+                            d.items = new Uint32Array(d.start[cells]);
+                            cursor = d.start.slice(0, cells);
+                        }
+                        stage++;
+                        t = 0;
+                    }
+ 
+                    function slice() {
+                        try {
+                            var until = Date.now() + 4;
+                            while (stage < 3 && Date.now() < until) {
+                                var stop = Math.min(t + 2000, n);
+                                while (t < stop) {
+                                    tri(t);
+                                    t++;
+                                }
+                                if (t >= n) {
+                                    nextStage();
+                                }
+                            }
+                            if (stage < 3) {
+                                setTimeout(slice, 0);
+                                return;
+                            }
+                            finish(d, done);
+                        } catch (e) {
+                            if (fail) {
+                                fail(e);
+                            }
+                        }
+                    }
+                    slice();
+                }
+ 
+                // Build the collision grid from packed triangles. Uses a background
+                // worker so the page never stalls; falls back to building here in
+                // small slices if workers aren't allowed.
+                phys.build = function (tris, done, fail) {
+                    var worker = null;
+                    try {
+                        var code = document.getElementById("physWorker").textContent;
+                        var url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+                        worker = new Worker(url);
+                    } catch (e) {
+                        worker = null;
+                    }
+                    if (!worker) {
+                        sz.status("building on the page");
+                        buildHere(tris, done, fail);
+                        return;
+                    }
+                    sz.status("building in a worker");
+ 
+                    var gave = false;
+                    var sent = null;
+                    function fallBack() {
+                        if (gave) {
+                            return;
+                        }
+                        gave = true;
+                        worker.terminate();
+                        // A transferred array is gone from this side; use the copy
+                        sz.status("worker failed, building on the page");
+                        buildHere(sent, done, fail);
+                    }
+ 
+                    worker.onmessage = function (e) {
+                        if (gave) {
+                            return;
+                        }
+                        gave = true;
+                        worker.terminate();
+                        sent = null;
+                        finish(e.data, done);
+                    };
+                    worker.onerror = function (e) {
+                        e.preventDefault();
+                        fallBack();
+                    };
+ 
+                    // Keep a copy only while the worker might still fail
+                    sent = tris.slice();
+                    try {
+                        // Hand the array over instead of copying it
+                        worker.postMessage({ tris: tris, cell: phys.cell }, [tris.buffer]);
+                    } catch (e) {
+                        fallBack();
+                        return;
+                    }
+                    // A worker that never answers (blocked quietly) gets 8 seconds
+                    setTimeout(function () {
+                        if (!phys.ready) {
+                            fallBack();
+                        }
+                    }, 8000);
+                };
+ 
+                // Triangles whose cells touch the square around x, z
+                phys.near = function (x, z, r) {
+                    var out = phys.found;
+                    out.length = 0;
+                    phys.mark++;
+ 
+                    var x0 = Math.max(0, Math.floor((x - r) / phys.cell) - phys.gx);
+                    var x1 = Math.min(phys.sx - 1, Math.floor((x + r) / phys.cell) - phys.gx);
+                    var z0 = Math.max(0, Math.floor((z - r) / phys.cell) - phys.gz);
+                    var z1 = Math.min(phys.sz - 1, Math.floor((z + r) / phys.cell) - phys.gz);
+                    var start = phys.start;
+                    var items = phys.items;
+ 
+                    for (var ix = x0; ix <= x1; ix++) {
+                        for (var iz = z0; iz <= z1; iz++) {
+                            var c = ix * phys.sz + iz;
+                            for (var i = start[c]; i < start[c + 1]; i++) {
+                                var t = items[i];
+                                if (phys.stamp[t] !== phys.mark) {
+                                    phys.stamp[t] = phys.mark;
+                                    out.push(t);
+                                }
+                            }
+                        }
+                    }
+                    return out;
+                };
+ 
+                // Highest walkable surface under x, z at or below top
+                phys.floor = function (x, top, z) {
+                    var best = -Infinity;
+                    var near = phys.near(x, z, 0);
+                    var T = phys.tris;
+ 
+                    for (var i = 0; i < near.length; i++) {
+                        var t = near[i];
+                        if (phys.up[t] < 0.5) {
+                            continue;
+                        }
+                        var b = t * 6;
+                        if (x < phys.box[b] || x > phys.box[b + 3] || z < phys.box[b + 2] || z > phys.box[b + 5]) {
+                            continue;
+                        }
+                        if (phys.box[b + 1] > top) {
+                            continue;
+                        }
+ 
+                        var o = t * 9;
+                        var ax = T[o], ay = T[o + 1], az = T[o + 2];
+                        var bx = T[o + 3], by = T[o + 4], bz = T[o + 5];
+                        var cx = T[o + 6], cy = T[o + 7], cz = T[o + 8];
+ 
+                        // Barycentric weights in the XZ plane
+                        var d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+                        if (Math.abs(d) < 1e-12) {
+                            continue;
+                        }
+                        var w1 = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / d;
+                        var w2 = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / d;
+                        var w3 = 1 - w1 - w2;
+                        if (w1 < 0 || w2 < 0 || w3 < 0) {
+                            continue;
+                        }
+ 
+                        var y = w1 * ay + w2 * by + w3 * cy;
+                        if (y <= top && y > best) {
+                            best = y;
+                        }
+                    }
+                    return best;
+                };
+ 
+                // Closest point on triangle t to p (Ericson, Real-Time Collision Detection)
+                var hit = [0, 0, 0];
+                function closest(px, py, pz, t) {
+                    var T = phys.tris;
+                    var o = t * 9;
+                    var ax = T[o], ay = T[o + 1], az = T[o + 2];
+                    var bx = T[o + 3], by = T[o + 4], bz = T[o + 5];
+                    var cx = T[o + 6], cy = T[o + 7], cz = T[o + 8];
+ 
+                    var abx = bx - ax, aby = by - ay, abz = bz - az;
+                    var acx = cx - ax, acy = cy - ay, acz = cz - az;
+                    var apx = px - ax, apy = py - ay, apz = pz - az;
+ 
+                    var d1 = abx * apx + aby * apy + abz * apz;
+                    var d2 = acx * apx + acy * apy + acz * apz;
+                    if (d1 <= 0 && d2 <= 0) {
+                        hit[0] = ax; hit[1] = ay; hit[2] = az;
+                        return;
+                    }
+ 
+                    var bpx = px - bx, bpy = py - by, bpz = pz - bz;
+                    var d3 = abx * bpx + aby * bpy + abz * bpz;
+                    var d4 = acx * bpx + acy * bpy + acz * bpz;
+                    if (d3 >= 0 && d4 <= d3) {
+                        hit[0] = bx; hit[1] = by; hit[2] = bz;
+                        return;
+                    }
+ 
+                    var vc = d1 * d4 - d3 * d2;
+                    if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+                        var v = d1 / (d1 - d3);
+                        hit[0] = ax + abx * v; hit[1] = ay + aby * v; hit[2] = az + abz * v;
+                        return;
+                    }
+ 
+                    var cpx = px - cx, cpy = py - cy, cpz = pz - cz;
+                    var d5 = abx * cpx + aby * cpy + abz * cpz;
+                    var d6 = acx * cpx + acy * cpy + acz * cpz;
+                    if (d6 >= 0 && d5 <= d6) {
+                        hit[0] = cx; hit[1] = cy; hit[2] = cz;
+                        return;
+                    }
+ 
+                    var vb = d5 * d2 - d1 * d6;
+                    if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+                        var w = d2 / (d2 - d6);
+                        hit[0] = ax + acx * w; hit[1] = ay + acy * w; hit[2] = az + acz * w;
+                        return;
+                    }
+ 
+                    var va = d3 * d6 - d5 * d4;
+                    if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+                        var e = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+                        hit[0] = bx + (cx - bx) * e; hit[1] = by + (cy - by) * e; hit[2] = bz + (cz - bz) * e;
+                        return;
+                    }
+ 
+                    var inv = 1 / (va + vb + vc);
+                    var sv = vb * inv;
+                    var sw = vc * inv;
+                    hit[0] = ax + abx * sv + acx * sw;
+                    hit[1] = ay + aby * sv + acy * sw;
+                    hit[2] = az + abz * sv + acz * sw;
+                }
+ 
+                // Push the body's spheres out of walls and ceilings
+                function pushOut(p) {
+                    var r = phys.radius;
+                    var near = phys.near(p.x, p.z, r + 0.05);
+ 
+                    for (var pass = 0; pass < 3; pass++) {
+                        var moved = false;
+ 
+                        for (var s = 0; s < phys.spheres.length; s++) {
+                            var cy = p.y + phys.spheres[s];
+ 
+                            for (var i = 0; i < near.length; i++) {
+                                var t = near[i];
+                                var b = t * 6;
+                                var B = phys.box;
+                                if (p.x + r < B[b] || p.x - r > B[b + 3]) { continue; }
+                                if (cy + r < B[b + 1] || cy - r > B[b + 4]) { continue; }
+                                if (p.z + r < B[b + 2] || p.z - r > B[b + 5]) { continue; }
+ 
+                                closest(p.x, cy, p.z, t);
+                                var dx = p.x - hit[0];
+                                var dy = cy - hit[1];
+                                var dz = p.z - hit[2];
+                                var d2 = dx * dx + dy * dy + dz * dz;
+                                if (d2 >= r * r || d2 < 1e-12) {
+                                    continue;
+                                }
+ 
+                                // Floors under the body are the ground check's job
+                                if (phys.up[t] > 0.7 && hit[1] < cy) {
+                                    continue;
+                                }
+ 
+                                var d = Math.sqrt(d2);
+                                var push = r - d;
+                                var nx = dx / d;
+                                var ny = dy / d;
+                                var nz = dz / d;
+ 
+                                p.x += nx * push;
+                                p.z += nz * push;
+ 
+                                // Bumping a ceiling stops the jump
+                                if (ny < -0.5) {
+                                    p.y += ny * push;
+                                    if (p.vy > 0) {
+                                        p.vy = 0;
+                                    }
+                                }
+ 
+                                // Slide along the wall instead of into it
+                                var into = p.vx * nx + p.vz * nz;
+                                if (into < 0) {
+                                    p.vx -= nx * into;
+                                    p.vz -= nz * into;
+                                }
+                                moved = true;
+                            }
+                        }
+ 
+                        if (!moved) {
+                            break;
+                        }
+                    }
+                }
+ 
+                // One physics step for a walking body p (feet position)
+                phys.walk = function (p, wishX, wishZ, jump, dt) {
+                    // Accelerate toward the wanted velocity: quick on the ground, loose in the air
+                    var grip = p.ground ? 12 : 2;
+                    var ease = 1 - Math.exp(-grip * dt);
+                    p.vx += (wishX - p.vx) * ease;
+                    p.vz += (wishZ - p.vz) * ease;
+ 
+                    if (jump && p.ground) {
+                        p.vy = phys.jump;
+                        p.ground = false;
+                    }
+ 
+                    p.x += p.vx * dt;
+                    p.z += p.vz * dt;
+                    pushOut(p);
+ 
+                    var wasGround = p.ground;
+                    p.vy -= phys.gravity * dt;
+                    var floor = phys.floor(p.x, p.y + phys.step, p.z);
+                    p.y += p.vy * dt;
+ 
+                    if (floor > -Infinity && p.y <= floor) {
+                        // Landed, or walked up a step
+                        p.y = floor;
+                        p.vy = 0;
+                        p.ground = true;
+                    } else if (wasGround && p.vy <= 0 && floor > -Infinity && p.y - floor < phys.step) {
+                        // Stick to the floor going down stairs and slopes
+                        p.y = floor;
+                        p.vy = 0;
+                        p.ground = true;
+                    } else {
+                        p.ground = false;
+                    }
+                };
+            })();
+        </script>
+ 
+        <!-- Camera -->
+        <script>
+            (function () {
+                var sz = window.sz;
+                var cam = sz.cam;
+ 
+                sz.setMode = function (mode) {
+                    if (mode === cam.mode) {
+                        return;
+                    }
+                    if (mode === "walk") {
+                        cam.y -= cam.eye;       // eye to feet
+                        cam.eyeY = cam.y + cam.eye;
+                    } else {
+                        cam.y = cam.eyeY;      // feet to eye
+                    }
+                    cam.vx = 0;
+                    cam.vy = 0;
+                    cam.vz = 0;
+                    cam.ground = false;
+                    cam.mode = mode;
+                    sz.hint();
+                };
+ 
+                function fly(dt, fx, fy, fz, rx, rz) {
+                    var k = cam.keys;
+                    var mx = 0;
+                    var my = 0;
+                    var mz = 0;
+ 
+                    if (k.KeyW) { mx += fx; my += fy; mz += fz; }
+                    if (k.KeyS) { mx -= fx; my -= fy; mz -= fz; }
+                    if (k.KeyD) { mx += rx; mz += rz; }
+                    if (k.KeyA) { mx -= rx; mz -= rz; }
+                    if (k.Space) { my += 1; }
+                    if (k.ShiftLeft || k.ShiftRight) { my -= 1; }
+ 
+                    var len = Math.sqrt(mx * mx + my * my + mz * mz);
+                    var speed = cam.flySpeed;
+                    if (k.ControlLeft) {
+                        speed *= 3;
+                    }
+                    if (len > 0) {
+                        mx = mx / len * speed;
+                        my = my / len * speed;
+                        mz = mz / len * speed;
+                    }
+ 
+                    // Ease the velocity so starts and stops are smooth
+                    var ease = 1 - Math.exp(-14 * dt);
+                    cam.vx += (mx - cam.vx) * ease;
+                    cam.vy += (my - cam.vy) * ease;
+                    cam.vz += (mz - cam.vz) * ease;
+ 
+                    cam.x += cam.vx * dt;
+                    cam.y += cam.vy * dt;
+                    cam.z += cam.vz * dt;
+                    cam.eyeY = cam.y;
+                }
+ 
+                function walk(dt, rx, rz) {
+                    var k = cam.keys;
+ 
+                    // Flat forward, so looking up or down doesn't change walking speed
+                    var fx = -Math.sin(cam.yaw);
+                    var fz = -Math.cos(cam.yaw);
+                    var mx = 0;
+                    var mz = 0;
+ 
+                    if (k.KeyW) { mx += fx; mz += fz; }
+                    if (k.KeyS) { mx -= fx; mz -= fz; }
+                    if (k.KeyD) { mx += rx; mz += rz; }
+                    if (k.KeyA) { mx -= rx; mz -= rz; }
+ 
+                    var len = Math.sqrt(mx * mx + mz * mz);
+                    var speed = cam.walkSpeed;
+                    if (k.ShiftLeft || k.ShiftRight || k.ControlLeft) {
+                        speed *= 1.8;
+                    }
+                    if (len > 0) {
+                        mx = mx / len * speed;
+                        mz = mz / len * speed;
+                    }
+ 
+                    // Jump once per press
+                    var jump = k.Space && !cam.jumpHeld;
+                    cam.jumpHeld = !!k.Space;
+ 
+                    // Small fixed steps so fast falls can't pass through floors
+                    var steps = Math.ceil(dt / (1 / 120));
+                    var h = dt / steps;
+                    for (var i = 0; i < steps; i++) {
+                        sz.phys.walk(cam, mx, mz, jump && i === 0, h);
+                    }
+ 
+                    // Fell out of the level: back to the start
+                    if (cam.y < -30) {
+                        cam.x = 9.2;
+                        cam.y = 0.5;
+                        cam.z = -0.3;
+                        cam.vx = 0;
+                        cam.vy = 0;
+                        cam.vz = 0;
+                    }
+ 
+                    // Smooth the eye over steps; follow jumps and falls directly
+                    var target = cam.y + cam.eye;
+                    if (cam.ground) {
+                        cam.eyeY += (target - cam.eyeY) * (1 - Math.exp(-18 * dt));
+                    } else {
+                        cam.eyeY = target;
+                    }
+                }
+ 
+                sz.moveCam = function (app, dt) {
+                    var cp = Math.cos(cam.pitch);
+                    var sp = Math.sin(cam.pitch);
+                    var cy = Math.cos(cam.yaw);
+                    var sy = Math.sin(cam.yaw);
+ 
+                    // Look direction and right direction
+                    var fx = -sy * cp;
+                    var fy = sp;
+                    var fz = -cy * cp;
+                    var rx = cy;
+                    var rz = -sy;
+ 
+                    if (cam.mode === "walk") {
+                        if (sz.phys.ready) {
+                            walk(dt, rx, rz);
+                        } else {
+                            // Collision still building (or failed): glide at eye height
+                            var saveY = cam.y;
+                            fly(dt, -sy, 0, -cy, rx, rz);
+                            cam.y = saveY;
+                            cam.vy = 0;
+                            cam.eyeY = cam.y + cam.eye;
+                        }
+                    } else {
+                        fly(dt, fx, fy, fz, rx, rz);
+                    }
+ 
+                    var ex = cam.x;
+                    var ey = cam.eyeY;
+                    var ez = cam.z;
+                    app.camera.position.set([ex, ey, ez]);
+                    app.camera.target.set([ex + fx, ey + fy, ez + fz]);
+                    app.camera.update();
+                };
+            })();
+        </script>
+ 
+        <!-- Fullscreen -->
+        <script>
+            (function () {
+                var sz = window.sz;
+                var full = sz.full = {
+                    // True in the copy of the page opened in its own tab
+                    popped: !!window.szPopped,
+                    tab: null
+                };
+ 
+                function isFull() {
+                    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+                }
+ 
+                function enter(onFail) {
+                    var el = document.documentElement;
+                    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+                    var allowed = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+                    if (!req || !allowed) {
+                        onFail();
+                        return;
+                    }
+                    try {
+                        var p = req.call(el);
+                        if (p && p.catch) {
+                            p.catch(onFail);
+                        }
+                    } catch (e) {
+                        onFail();
+                    }
+                }
+ 
+                function leave() {
+                    var exit = document.exitFullscreen || document.webkitExitFullscreen;
+                    if (exit) {
+                        exit.call(document);
+                    }
+                }
+ 
+                // Khan Academy's frame doesn't allow fullscreen, so open this page
+                // in its own tab, where it can go fullscreen for real.
+                function popOut() {
+                    if (window.top === window) {
+                        sz.msg.textContent = "The browser blocked fullscreen here. Press F11 instead.";
+                        return;
+                    }
+ 
+                    var w = null;
+                    try {
+                        w = window.open("", "_blank");
+                    } catch (e) {
+                        w = null;
+                    }
+                    if (!w) {
+                        sz.msg.textContent = "Couldn't open a new tab (popups blocked). Allow popups, or press F11.";
+                        return;
+                    }
+ 
+                    var html = sz.pageHtml || "<!DOCTYPE html>" + document.documentElement.outerHTML;
+                    // The tag is split in two so no page tool can mistake it for the end of this script
+                    var tag = "scr" + "ipt";
+                    html = html.replace("<head>", "<head><" + tag + ">window.szPopped = true;</" + tag + ">");
+                    try {
+                        w.document.open();
+                        w.document.write(html);
+                        w.document.close();
+                    } catch (e) {
+                        w.close();
+                        sz.msg.textContent = "Couldn't open the fullscreen tab here. Press F11 instead.";
+                        return;
+                    }
+ 
+                    // Two copies rendering at once is too much: pause this one until the tab closes
+                    full.tab = w;
+                    if (sz.app) {
+                        sz.app.stop();
+                    }
+                    sz.msg.textContent = "Running in the new tab. Close it to come back here.";
+                    var watch = setInterval(function () {
+                        if (!w.closed) {
+                            return;
+                        }
+                        clearInterval(watch);
+                        full.tab = null;
+                        if (sz.app) {
+                            sz.app.start();
+                        }
+                        sz.hint();
+                    }, 500);
+                }
+ 
+                full.toggle = function () {
+                    if (isFull()) {
+                        leave();
+                        return;
+                    }
+                    enter(popOut);
+                };
+ 
+                // In the popped-out tab: one click to go fullscreen
+                // (browsers only allow it right after a click)
+                full.prompt = function () {
+                    var b = document.createElement("button");
+                    b.className = "btn";
+                    b.textContent = "Click for fullscreen";
+                    b.style.position = "fixed";
+                    b.style.left = "50%";
+                    b.style.top = "50%";
+                    b.style.width = "220px";
+                    b.style.marginLeft = "-110px";
+                    b.style.zIndex = "5";
+                    b.style.fontSize = "15px";
+                    b.onclick = function () {
+                        b.parentNode.removeChild(b);
+                        enter(function () {
+                            sz.msg.textContent = "The browser blocked fullscreen. Press F11 instead.";
+                        });
+                    };
+                    document.body.appendChild(b);
+                };
+ 
+                full.isFull = isFull;
+            })();
+        </script>
+ 
+        <!-- Menu -->
+        <script>
+            (function () {
+                var sz = window.sz;
+                var cam = sz.cam;
+                var list = sz.list;
+                var panel = sz.panel;
+ 
+                var scroll = sz.scroll = {
+                    bar: document.getElementById("bar"),
+                    thumb: document.getElementById("thumb"),
+                    timer: 0,
+                    grab: null
+                };
+ 
+                scroll.update = function () {
+                    var view = list.clientHeight;
+                    var full = list.scrollHeight;
+                    var track = scroll.bar.clientHeight;
+ 
+                    if (full <= view + 1) {
+                        scroll.bar.classList.add("hide");
+                        return;
+                    }
+                    scroll.bar.classList.remove("hide");
+ 
+                    var size = Math.max(24, track * view / full);
+                    var room = track - size;
+                    var pos = room * list.scrollTop / (full - view);
+ 
+                    scroll.thumb.style.height = size + "px";
+                    scroll.thumb.style.top = pos + "px";
+                };
+ 
+                list.addEventListener("scroll", function () {
+                    scroll.update();
+                    scroll.bar.classList.add("active");
+                    clearTimeout(scroll.timer);
+                    scroll.timer = setTimeout(function () {
+                        scroll.bar.classList.remove("active");
+                    }, 1000);
+                });
+ 
+                window.addEventListener("resize", scroll.update);
+ 
+                scroll.thumb.addEventListener("mousedown", function (e) {
+                    scroll.grab = { y: e.clientY, top: list.scrollTop };
+                    e.preventDefault();
+                });
+ 
+                window.addEventListener("mousemove", function (e) {
+                    if (!scroll.grab) {
+                        return;
+                    }
+                    var view = list.clientHeight;
+                    var full = list.scrollHeight;
+                    var room = scroll.bar.clientHeight - scroll.thumb.offsetHeight;
+                    var dy = e.clientY - scroll.grab.y;
+                    list.scrollTop = scroll.grab.top + dy * (full - view) / room;
+                });
+ 
+                window.addEventListener("mouseup", function () {
+                    scroll.grab = null;
+                });
+ 
+                // Clicking the empty track jumps a page
+                scroll.bar.addEventListener("mousedown", function (e) {
+                    if (e.target !== scroll.bar) {
+                        return;
+                    }
+                    var thumbTop = scroll.thumb.getBoundingClientRect().top;
+                    var page = list.clientHeight * 0.9;
+                    list.scrollTop += e.clientY < thumbTop ? -page : page;
+                });
+ 
+                document.getElementById("tab").onclick = function () {
+                    panel.classList.toggle("open");
+                    scroll.update();
+                };
+ 
+                // Don't let menu buttons and checkboxes keep keyboard focus: a focused
+                // button swallows Space and its keys never reach the camera
+                panel.addEventListener("click", function (e) {
+                    var t = e.target;
+                    if (t.tagName === "BUTTON" || (t.tagName === "INPUT" && t.type === "checkbox")) {
+                        t.blur();
+                    }
+                });
+ 
+                sz.buildMenu = function (app, lights) {
+                    var r = app.renderer;
+                    var defaults = [];
+                    var body = list;
+ 
+                    // Collapsible section: a header button and a body that starts closed
+                    function section(title) {
+                        var box = document.createElement("div");
+                        box.className = "sec";
+ 
+                        var head = document.createElement("button");
+                        head.className = "sec-head";
+                        head.innerHTML = "<span class=\"arrow\">&#9656;</span>" + title;
+ 
+                        var inner = document.createElement("div");
+                        inner.className = "sec-body";
+ 
+                        head.onclick = function () {
+                            box.classList.toggle("open");
+                            scroll.update();
+                        };
+ 
+                        box.appendChild(head);
+                        box.appendChild(inner);
+                        list.appendChild(box);
+                        body = inner;
+                    }
+ 
+                    function slider(label, min, max, step, get, set) {
+                        var row = document.createElement("div");
+                        row.className = "row";
+ 
+                        var lab = document.createElement("label");
+                        var val = document.createElement("span");
+                        lab.textContent = label;
+                        lab.appendChild(val);
+ 
+                        var input = document.createElement("input");
+                        input.type = "range";
+                        input.min = min;
+                        input.max = max;
+                        input.step = step;
+                        input.value = get();
+ 
+                        function show() {
+                            var digits = step < 0.01 ? 3 : (step < 1 ? 2 : 0);
+                            val.textContent = Number(input.value).toFixed(digits);
+                        }
+ 
+                        input.oninput = function () {
+                            set(Number(input.value));
+                            show();
+                        };
+                        show();
+ 
+                        row.appendChild(lab);
+                        row.appendChild(input);
+                        body.appendChild(row);
+ 
+                        var start = get();
+                        defaults.push(function () {
+                            input.value = start;
+                            set(start);
+                            show();
+                        });
+                        return row;
+                    }
+ 
+                    function toggle(label, get, set) {
+                        var lab = document.createElement("label");
+                        lab.className = "check";
+ 
+                        var box = document.createElement("input");
+                        box.type = "checkbox";
+                        box.checked = get();
+                        box.onchange = function () {
+                            set(box.checked);
+                        };
+ 
+                        lab.appendChild(box);
+                        lab.appendChild(document.createTextNode(label));
+                        body.appendChild(lab);
+ 
+                        var start = get();
+                        defaults.push(function () {
+                            box.checked = start;
+                            set(start);
+                        });
+                        return lab;
+                    }
+ 
+                    // Drop-down. options is a list of [value, label] pairs
+                    function choice(label, options, get, set) {
+                        var row = document.createElement("div");
+                        row.className = "row";
+ 
+                        var lab = document.createElement("label");
+                        lab.textContent = label;
+ 
+                        var sel = document.createElement("select");
+                        for (var i = 0; i < options.length; i++) {
+                            var opt = document.createElement("option");
+                            opt.value = String(options[i][0]);
+                            opt.textContent = options[i][1];
+                            sel.appendChild(opt);
+                        }
+                        sel.value = String(get());
+                        sel.onchange = function () {
+                            set(sel.value);
+                        };
+ 
+                        row.appendChild(lab);
+                        row.appendChild(sel);
+                        body.appendChild(row);
+ 
+                        var start = String(get());
+                        defaults.push(function () {
+                            sel.value = start;
+                            set(start);
+                        });
+                        return row;
+                    }
+ 
+                    function button(label, onClick, parent) {
+                        var b = document.createElement("button");
+                        b.className = "btn";
+                        b.textContent = label;
+                        b.onclick = onClick;
+                        (parent || body).appendChild(b);
+                        return b;
+                    }
+ 
+                    section("Window");
+                    var fsBtn = button("Fullscreen", function () {
+                        sz.full.toggle();
+                    });
+                    function showFull() {
+                        fsBtn.textContent = sz.full.isFull() ? "Exit fullscreen" : "Fullscreen";
+                    }
+                    document.addEventListener("fullscreenchange", showFull);
+                    document.addEventListener("webkitfullscreenchange", showFull);
+                    slider("Resolution scale", 0.5, 2, 0.25,
+                        function () { return app.maxDpr; },
+                        function (v) { app.maxDpr = v; });
+                    toggle("Anti-aliasing (FXAA)",
+                        function () { return r.fxaa; },
+                        function (v) { r.fxaa = v; });
+ 
+                    section("Movement");
+                    var modeBtn = button("", function () {
+                        sz.setMode(cam.mode === "walk" ? "fly" : "walk");
+                        showMode();
+                    });
+                    function showMode() {
+                        modeBtn.textContent = cam.mode === "walk" ? "Mode: First person (walk)" : "Mode: Fly";
+                    }
+                    showMode();
+                    slider("Walk speed", 1, 8, 0.1,
+                        function () { return cam.walkSpeed; },
+                        function (v) { cam.walkSpeed = v; });
+                    slider("Fly speed", 1, 15, 0.5,
+                        function () { return cam.flySpeed; },
+                        function (v) { cam.flySpeed = v; });
+                    slider("Jump power", 2, 9, 0.1,
+                        function () { return sz.phys.jump; },
+                        function (v) { sz.phys.jump = v; });
+                    slider("Mouse sensitivity", 0.5, 3, 0.1,
+                        function () { return cam.sens; },
+                        function (v) { cam.sens = v; });
+ 
+                    section("Camera and exposure");
+                    var ui = {};
+ 
+                    toggle("Physical light units",
+                        function () { return r.physical.enabled; },
+                        function (v) { lights.setPhysical(v); sync(); });
+                    ui.info = document.createElement("div");
+                    ui.info.className = "info";
+                    body.appendChild(ui.info);
+ 
+                    ui.manual = slider("Exposure (manual)", 0.2, 3, 0.05,
+                        function () { return r.exposure; },
+                        function (v) { r.exposure = v; sync(); });
+                    ui.aperture = slider("Aperture (f-stop)", 1.4, 22, 0.1,
+                        function () { return r.physical.aperture; },
+                        function (v) { r.physical.aperture = v; sync(); });
+                    ui.shutter = choice("Shutter speed", [
+                        [1 / 8, "1/8 s"], [1 / 15, "1/15 s"], [1 / 30, "1/30 s"], [1 / 60, "1/60 s"],
+                        [1 / 125, "1/125 s"], [1 / 250, "1/250 s"], [1 / 500, "1/500 s"]
+                    ],
+                        function () { return r.physical.shutter; },
+                        function (v) { r.physical.shutter = Number(v); sync(); });
+                    ui.iso = slider("ISO", 50, 3200, 50,
+                        function () { return r.physical.iso; },
+                        function (v) { r.physical.iso = v; sync(); });
+                    slider("Exposure compensation", -4, 4, 0.1,
+                        function () { return r.exposureCompensation; },
+                        function (v) { r.exposureCompensation = v; });
+ 
+                    toggle("Auto exposure",
+                        function () { return r.autoExposure.enabled; },
+                        function (v) { r.autoExposure.enabled = v; sync(); });
+                    ui.speed = slider("Adapt speed", 0.2, 6, 0.1,
+                        function () { return r.autoExposure.speed; },
+                        function (v) { r.autoExposure.speed = v; });
+                    ui.min = slider("Auto min (stops)", -8, 0, 0.5,
+                        function () { return r.autoExposure.min; },
+                        function (v) { r.autoExposure.min = v; });
+                    ui.max = slider("Auto max (stops)", 0, 8, 0.5,
+                        function () { return r.autoExposure.max; },
+                        function (v) { r.autoExposure.max = v; });
+ 
+                    // Grey out what the current mode ignores, and say what is metering
+                    function sync() {
+                        var phys = r.physical.enabled;
+                        var auto = r.autoExposure.enabled;
+ 
+                        ui.manual.classList.toggle("off", phys || auto);
+                        ui.aperture.classList.toggle("off", !phys || auto);
+                        ui.shutter.classList.toggle("off", !phys || auto);
+                        ui.iso.classList.toggle("off", !phys || auto);
+                        ui.speed.classList.toggle("off", !auto);
+                        ui.min.classList.toggle("off", !auto);
+                        ui.max.classList.toggle("off", !auto);
+ 
+                        var text;
+                        if (auto) {
+                            text = "Auto exposure is metering the scene";
+                        } else if (phys) {
+                            var p = r.physical;
+                            var ev = Math.log(p.aperture * p.aperture / p.shutter * 100 / p.iso) / Math.LN2;
+                            text = "Lights in lumens · EV100 " + ev.toFixed(1);
+                        } else {
+                            text = "Manual exposure";
+                        }
+                        if (phys && auto) {
+                            text += " · lights in lumens";
+                        }
+                        ui.info.textContent = text;
+                    }
+                    sync();
+ 
+                    section("Lighting and shadows");
+                    slider("Sky light", 0, 3000, 50,
+                        function () { return lights.getSky(); },
+                        function (v) { lights.setSky(v); });
+                    slider("Ambient", 0, 3, 0.05,
+                        function () { return lights.ambientMul; },
+                        function (v) { lights.setAmbient(v); });
+                    toggle("Shadows",
+                        function () { return r.shadows.enabled; },
+                        function (v) { r.shadows.enabled = v; });
+                    slider("Shadow softness", 0.5, 4, 0.1,
+                        function () { return r.shadows.pcfRadius; },
+                        function (v) { r.shadows.pcfRadius = v; });
+                    slider("Shadow resolution", 256, 2048, 256,
+                        function () { return r.shadows.size; },
+                        function (v) { r.shadows.size = v; });
+ 
+                    section("Reflections (SSR)");
+                    slider("Intensity", 0, 1, 0.05,
+                        function () { return r.ssr.intensity; },
+                        function (v) { r.ssr.intensity = v; });
+                    slider("Quality (steps)", 8, 64, 4,
+                        function () { return r.ssr.steps; },
+                        function (v) { r.ssr.steps = v; });
+                    slider("Max distance", 5, 80, 1,
+                        function () { return r.ssr.maxDistance; },
+                        function (v) { r.ssr.maxDistance = v; });
+ 
+                    section("Ambient occlusion (SSAO)");
+                    slider("Intensity", 0, 2, 0.05,
+                        function () { return r.ao.intensity; },
+                        function (v) { r.ao.intensity = v; });
+                    slider("Radius", 0.1, 3, 0.05,
+                        function () { return r.ao.radius; },
+                        function (v) { r.ao.radius = v; });
+                    slider("Power", 0.5, 3, 0.05,
+                        function () { return r.ao.power; },
+                        function (v) { r.ao.power = v; });
+ 
+                    section("Indirect light (SSIL)");
+                    slider("Intensity", 0, 3, 0.05,
+                        function () { return r.ssil.intensity; },
+                        function (v) { r.ssil.intensity = v; });
+                    slider("Radius", 0.5, 8, 0.1,
+                        function () { return r.ssil.radius; },
+                        function (v) { r.ssil.radius = v; });
+ 
+                    section("Volumetric fog");
+                    toggle("Enabled",
+                        function () { return r.volumetric.enabled; },
+                        function (v) { r.volumetric.enabled = v; });
+                    slider("Density", 0, 0.15, 0.001,
+                        function () { return r.volumetric.density; },
+                        function (v) { r.volumetric.density = v; });
+                    slider("Height falloff", 0, 1, 0.01,
+                        function () { return r.volumetric.heightFalloff; },
+                        function (v) { r.volumetric.heightFalloff = v; });
+                    slider("Light scattering", 0, 4, 0.05,
+                        function () { return r.volumetric.lightScatter; },
+                        function (v) { r.volumetric.lightScatter = v; });
+                    slider("Ambient scattering", 0, 4, 0.05,
+                        function () { return r.volumetric.ambient; },
+                        function (v) { r.volumetric.ambient = v; });
+                    slider("Anisotropy", -0.9, 0.9, 0.05,
+                        function () { return r.volumetric.anisotropy; },
+                        function (v) { r.volumetric.anisotropy = v; });
+                    slider("Quality (steps)", 8, 64, 4,
+                        function () { return r.volumetric.steps; },
+                        function (v) { r.volumetric.steps = v; });
+ 
+                    section("Depth of field");
+                    toggle("Enabled",
+                        function () { return r.dof.enabled; },
+                        function (v) { r.dof.enabled = v; });
+                    toggle("Auto focus (center of screen)",
+                        function () { return r.dof.autoFocus; },
+                        function (v) { r.dof.autoFocus = v; });
+                    slider("Focus distance (m)", 0.5, 40, 0.5,
+                        function () { return r.dof.focus; },
+                        function (v) { r.dof.focus = v; });
+                    slider("In-focus range (m)", 0, 10, 0.1,
+                        function () { return r.dof.range; },
+                        function (v) { r.dof.range = v; });
+                    slider("Transition (m)", 0.5, 20, 0.5,
+                        function () { return r.dof.transition; },
+                        function (v) { r.dof.transition = v; });
+                    slider("Blur amount (px)", 1, 24, 1,
+                        function () { return r.dof.amount; },
+                        function (v) { r.dof.amount = v; });
+                    toggle("Blur near",
+                        function () { return r.dof.near; },
+                        function (v) { r.dof.near = v; });
+                    toggle("Blur far",
+                        function () { return r.dof.far; },
+                        function (v) { r.dof.far = v; });
+ 
+                    section("Bloom and haze");
+                    slider("Bloom", 0, 1.5, 0.05,
+                        function () { return r.bloom.strength; },
+                        function (v) { r.bloom.strength = v; });
+                    slider("Bloom threshold", 0, 4, 0.05,
+                        function () { return r.bloom.threshold; },
+                        function (v) { r.bloom.threshold = v; });
+                    slider("Distance haze", 0, 1, 0.05,
+                        function () { return r.aerialPerspective; },
+                        function (v) { r.aerialPerspective = v; });
+ 
+                    section("Tonemap and color");
+                    choice("Tonemapper", [
+                        ["linear", "Linear"], ["reinhard", "Reinhard"], ["filmic", "Filmic"],
+                        ["aces", "ACES"], ["agx", "AgX"]
+                    ],
+                        function () { return r.tonemap.mode; },
+                        function (v) { r.tonemap.mode = v; });
+                    slider("White point", 1, 16, 0.5,
+                        function () { return r.tonemap.white; },
+                        function (v) { r.tonemap.white = v; });
+                    slider("Brightness", 0.2, 2, 0.05,
+                        function () { return r.tonemap.brightness; },
+                        function (v) { r.tonemap.brightness = v; });
+                    slider("Contrast", 0.5, 1.8, 0.05,
+                        function () { return r.tonemap.contrast; },
+                        function (v) { r.tonemap.contrast = v; });
+                    slider("Saturation", 0, 2, 0.05,
+                        function () { return r.tonemap.saturation; },
+                        function (v) { r.tonemap.saturation = v; });
+ 
+                    // One reset for everything, outside the sections
+                    button("Reset everything to defaults", function () {
+                        for (var i = 0; i < defaults.length; i++) {
+                            defaults[i]();
+                        }
+                    }, list).classList.add("reset");
+ 
+                    scroll.update();
+                };
+            })();
+        </script>
+ 
+        <!-- Scene -->
+        <script>
+            (function () {
+                var sz = window.sz;
+                var msg = sz.msg;
+ 
+                if (!navigator.gpu) {
+                    msg.textContent = "This browser doesn't support WebGPU.";
+                } else if (!window.Axion || !window.AxionAssets || !AxionAssets.sponza) {
+                    msg.textContent = "Couldn't load the engine or the model from jsDelivr.";
+                } else {
+                    Axion.App.create(sz.canvas, {
+                        clearColor: [0.05, 0.06, 0.08, 1],
+                        ambient: [0.10, 0.105, 0.12],
+                        groundAmbient: 0.45,
+                        exposure: 0.95,
+                        ssr: { steps: 24, maxDistance: 40, fadeDistance: 60, thickness: 0.35 },
+                        ao: { radius: 0.9, fadeDistance: 35 },
+                        bloom: { threshold: 1.2, strength: 0.35 },
+                        shadows: { maxLights: 3, size: 1024, pcfRadius: 1.4, near: 0.1 },
+                        ssil: { intensity: 1, radius: 3 },
+                        volumetric: { enabled: true, density: 0.01, heightFalloff: 0.1, anisotropy: 0.3, ambient: 0.6 },
+                        tonemap: { mode: "aces" },
+                        autoExposure: { enabled: false, key: 0.15 },
+                        dof: { enabled: false, autoFocus: true, focus: 6, range: 1.5, transition: 4, amount: 8 },
+                        physical: { enabled: false, aperture: 2.8, shutter: 1 / 30, iso: 400 }
+                    }).then(function (app) {
+                        sz.app = app;
+                        msg.textContent = "decoding Sponza…";
+ 
+                        // Decoded once: the renderer and the collision both read these bytes
+                        return Axion.unpackAsset(AxionAssets.sponza);
+                    }).then(function (bytes) {
+                        var app = sz.app;
+                        sz.bytes = bytes;
+ 
+                        return Axion.loadGLTF(app, bytes, {
+                            onProgress: function (stage, done, total) {
+                                if (stage === "textures") {
+                                    msg.textContent = "textures " + done + " / " + total;
+                                } else {
+                                    msg.textContent = stage + "…";
+                                }
+                            }
+                        }).then(function () {
+                            var r = app.renderer;
+                            var skyLight = app.light([1.5, 26, 0.6], { color: [1, 0.94, 0.86], intensity: 1400, range: 70 });
+                            var warm = app.light([6, 1.8, -0.2], { color: [1, 0.62, 0.32], intensity: 55, range: 16 });
+                            var cool = app.light([-4, 2.6, 2.4], { color: [0.45, 0.62, 1], intensity: 55, range: 16 });
+ 
+                            // Lights keep a base brightness; physical mode converts it to lumens.
+                            // The factors are picked so the starting camera (f/2.8, 1/30 s, ISO 400)
+                            // shows the same image, then aperture, shutter and ISO act like a real camera.
+                            var lights = {
+                                list: [
+                                    { e: skyLight, base: 1400 },
+                                    { e: warm, base: 55 },
+                                    { e: cool, base: 55 }
+                                ],
+                                ambientBase: r.ambient.slice(),
+                                ambientMul: 1,
+                                lumens: 1,
+                                nits: 1
+                            };
+ 
+                            r.physical.enabled = true;
+                            var physExposure = r.effectiveExposure();
+                            r.physical.enabled = false;
+                            var toPhysical = r.exposure / physExposure;
+ 
+                            lights.apply = function () {
+                                var phys = r.physical.enabled;
+                                for (var i = 0; i < lights.list.length; i++) {
+                                    var l = lights.list[i];
+                                    var c = app.world.get(l.e, Axion.PointLight);
+                                    // PointLight data is [r, g, b, intensity, range]
+                                    c.array[c.offset + 3] = phys ? l.base * toPhysical * 4 * Math.PI : l.base;
+                                }
+                                var k = lights.ambientMul * (phys ? toPhysical : 1);
+                                r.ambient = [
+                                    lights.ambientBase[0] * k,
+                                    lights.ambientBase[1] * k,
+                                    lights.ambientBase[2] * k
+                                ];
+                            };
+ 
+                            lights.getSky = function () {
+                                return lights.list[0].base;
+                            };
+                            lights.setSky = function (v) {
+                                lights.list[0].base = v;
+                                lights.apply();
+                            };
+                            lights.setAmbient = function (v) {
+                                lights.ambientMul = v;
+                                lights.apply();
+                            };
+                            lights.setPhysical = function (on) {
+                                r.physical.enabled = on;
+                                lights.apply();
+                            };
+ 
+                            // Start in the start spot; walk mode drops onto the floor below
+                            sz.cam.y -= sz.cam.eye;
+                            sz.cam.eyeY = sz.cam.y + sz.cam.eye;
+ 
+                            app.onFrame(function (dt) {
+                                sz.moveCam(app, dt);
+                            });
+ 
+                            sz.buildMenu(app, lights);
+                            sz.ready = true;
+                            sz.hint();
+                            app.start();
+                            if (sz.full && sz.full.popped) {
+                                sz.full.prompt();
+                            }
+ 
+                            // Collision reads the same model's triangles on the CPU.
+                            // Wait a moment so the first frames get the machine to themselves.
+                            sz.status("starting soon");
+                            setTimeout(function () {
+                                try {
+                                    sz.status("reading triangles");
+                                    var glb = Axion.parseGLB(sz.bytes);
+                                    var model = Axion.parseGLTF(glb.json, [glb.bin]);
+                                    var tris = sz.phys.pack(model);
+ 
+                                    // Everything but the packed triangles can be freed now
+                                    sz.bytes = null;
+                                    glb = null;
+                                    model = null;
+ 
+                                    sz.phys.build(tris, function () {
+                                        sz.hint();
+                                    }, function (e) {
+                                        sz.status("failed: " + (e.message || e));
+                                    });
+                                } catch (e) {
+                                    sz.status("failed: " + (e.message || e));
+                                }
+                            }, 1500);
+                        });
+                    }).catch(function (e) {
+                        msg.textContent = "Error: " + (e.message || e);
+                    });
+                }
+            })();
+        </script>
+    </body>
+</html>
+<!--
+
+Collisions should work better now.
+
+This is a demo of a currently being built engine called Axion. I was inspired by three.js and Hurtin, and decided to build my own 3D engine. 
+
+
+
+
+-->
+
+
+

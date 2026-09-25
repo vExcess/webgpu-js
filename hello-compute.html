@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <meta charset="utf-8">
+   <title>hello-compute</title>
+   <script src="webgpu.js"></script>
+</head>
+<body>
+<pre id="out">running…</pre>
+<script>
+const SHADER = `
+@group(0) @binding(0) var<storage, read_write> data: array<u32>;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+   data[gid.x] = gid.x * 3u + 1u;
+}
+`;
+
+(async () => {
+   const adapter = await navigator.gpu.requestAdapter();
+   if (!adapter) throw new Error('No GPU adapter (WebGL 2 required).');
+   const device = await adapter.requestDevice();
+
+   const COUNT = 256;
+   const buf = device.createBuffer({
+      size: COUNT * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.MAP_READ,
+   });
+
+   const module = device.createShaderModule({ code: SHADER });
+   const pipeline = device.createComputePipeline({
+      layout: 'auto',
+      compute: { module, entryPoint: 'main' },
+   });
+   const bg = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer: buf } }],
+   });
+
+   const encoder = device.createCommandEncoder();
+   const pass = encoder.beginComputePass();
+   pass.setPipeline(pipeline);
+   pass.setBindGroup(0, bg);
+   pass.dispatchWorkgroups(COUNT / 64);
+   pass.end();
+   device.queue.submit([encoder.finish()]);
+   await device.queue.onSubmittedWorkDone();
+
+   await buf.mapAsync(GPUMapMode.READ);
+   const got = new Uint32Array(buf.getMappedRange()).slice(0, COUNT);
+   buf.unmap();
+
+   let ok = true;
+   for (let i = 0; i < COUNT; i++) {
+      if (got[i] !== i * 3 + 1) { ok = false; break; }
+   }
+   const msg = ok
+      ? 'hello-compute: ok (data[i] == i*3+1 for ' + COUNT + ' elements)'
+      : 'hello-compute: mismatch, first 8 = ' + Array.from(got.slice(0, 8));
+   document.getElementById('out').textContent = msg;
+   console.log(msg);
+})().catch((e) => {
+   console.error(e);
+   document.getElementById('out').textContent = String(e && e.stack || e);
+});
+</script>
+</body>
+</html>

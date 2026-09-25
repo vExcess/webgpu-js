@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <meta charset="utf-8">
+   <script src="webgpu.js"></script>
+</head>
+<body>
+<pre id="out">starting</pre>
+<canvas id="c" width="64" height="64"></canvas>
+<script>
+window.__smoke = { ok: false, log: [] };
+function rec(s) { window.__smoke.log.push(s); document.getElementById('out').textContent = window.__smoke.log.join('\n'); }
+(async () => {
+   rec('gpu=' + !!navigator.gpu + ' gpu_js=' + !!navigator.gpu_js);
+   const adapter = await (navigator.gpu_js || navigator.gpu).requestAdapter();
+   rec('adapter=' + !!(adapter && adapter.requestDevice));
+   const device = await adapter.requestDevice();
+   rec('device=' + !!device);
+   const ctx = c.getContext('webgpu');
+   ctx.configure({ device, format: navigator.gpu.getPreferredCanvasFormat() });
+   rec('configured');
+
+   const enc = device.createCommandEncoder();
+   enc.beginRenderPass({
+      colorAttachments: [{
+         view: ctx.getCurrentTexture().createView(),
+         clearValue: [0, 1, 0, 1],
+         loadOp: 'clear',
+         storeOp: 'store',
+      }],
+   }).end();
+   device.queue.submit([enc.finish()]);
+   rec('green submitted');
+
+   const SHADER = `
+@vertex fn vs(@location(0) p: vec2f) -> @builtin(position) vec4f { return vec4f(p, 0.0, 1.0); }
+@fragment fn fs() -> @location(0) vec4f { return vec4f(1.0, 0.0, 0.0, 1.0); }
+`;
+   const verts = new Float32Array([-1,-1, 1,-1, 0,1]);
+   const vbuf = device.createBuffer({ size: verts.byteLength, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true });
+   new Float32Array(vbuf.getMappedRange()).set(verts);
+   vbuf.unmap();
+   const mod = device.createShaderModule({ code: SHADER });
+   try {
+      const compiled = mod.compile('vertex', 'vs');
+      rec('vs glsl ok, len=' + compiled.glsl.length);
+      rec(compiled.glsl);
+   } catch (ce) {
+      rec('vs compile throw ' + ce.message);
+      throw ce;
+   }
+   const pipe = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module: mod, entryPoint: 'vs', buffers: [{ arrayStride: 8, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }] }] },
+      fragment: { module: mod, entryPoint: 'fs', targets: [{ format: 'rgba8unorm' }] },
+   });
+   rec('pipeline ok');
+   const enc2 = device.createCommandEncoder();
+   const pass = enc2.beginRenderPass({
+      colorAttachments: [{
+         view: ctx.getCurrentTexture().createView(),
+         clearValue: [0, 0, 0, 1],
+         loadOp: 'clear',
+         storeOp: 'store',
+      }],
+   });
+   pass.setPipeline(pipe);
+   pass.setVertexBuffer(0, vbuf);
+   pass.draw(3);
+   pass.end();
+   device.queue.submit([enc2.finish()]);
+   rec('triangle submitted');
+
+   const SHADOW = `
+struct Face { viewProj : mat4x4<f32>, };
+struct Caster {
+  model : mat4x4<f32>,
+  rest  : array<vec4<f32>, 4>,
+};
+@group(0) @binding(0) var<uniform> face : Face;
+@group(0) @binding(1) var<storage, read> instances : array<Caster>;
+@group(0) @binding(2) var<storage, read> casters : array<u32>;
+@vertex
+fn vs(@builtin(instance_index) ii : u32, @location(0) position : vec3<f32>) -> @builtin(position) vec4<f32> {
+  return face.viewProj * (instances[casters[ii]].model * vec4<f32>(position, 1.0));
+}
+@fragment
+fn fs() { }
+`;
+   const shMod = device.createShaderModule({ code: SHADOW });
+   const shVs = shMod.compile('vertex', 'vs');
+   rec('shadow vs compiled, has model=' + (shVs.glsl.indexOf('.model') !== -1) + ' has _load=' + (shVs.glsl.indexOf('instances_load') !== -1));
+   rec('shadow vs snippet: ' + shVs.glsl.slice(shVs.glsl.indexOf('void main()'), shVs.glsl.indexOf('void main()') + 180));
+   device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module: shMod, entryPoint: 'vs', buffers: [{ arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] }] },
+      fragment: { module: shMod, entryPoint: 'fs', targets: [] },
+      primitive: { topology: 'triangle-list' },
+   });
+   rec('shadow pipeline ok');
+
+   const CS = `
+@group(0) @binding(0) var<storage, read_write> data: array<u32>;
+@compute @workgroup_size(8)
+fn main(@builtin(global_invocation_id) gid: vec3u) { data[gid.x] = gid.x + 7u; }
+`;
+   const cbuf = device.createBuffer({ size: 32, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.MAP_READ });
+   const cp = device.createComputePipeline({ layout: 'auto', compute: { module: device.createShaderModule({ code: CS }), entryPoint: 'main' } });
+   const bg = device.createBindGroup({ layout: cp.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: cbuf } }] });
+   const enc3 = device.createCommandEncoder();
+   const cpass = enc3.beginComputePass();
+   cpass.setPipeline(cp);
+   cpass.setBindGroup(0, bg);
+   cpass.dispatchWorkgroups(1);
+   cpass.end();
+   device.queue.submit([enc3.finish()]);
+   await device.queue.onSubmittedWorkDone();
+   await cbuf.mapAsync(GPUMapMode.READ);
+   const got = new Uint32Array(cbuf.getMappedRange()).slice(0, 8);
+   cbuf.unmap();
+   rec('compute=' + Array.from(got).join(','));
+   const computeOk = got[0] === 7 && got[3] === 10;
+   rec(computeOk ? 'compute ok' : 'compute FAIL');
+
+   window.__smoke.ok = computeOk;
+   rec('DONE');
+})().catch((e) => {
+   rec('ERROR name=' + (e && e.name) + ' msg=' + (e && e.message) + ' ' + (e && e.stack));
+   window.__smoke.err = (e && e.message) || String(e);
+});
+</script>
+</body>
+</html>

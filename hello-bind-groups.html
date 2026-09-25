@@ -1,227 +1,154 @@
 <!DOCTYPE html>
 <html>
-   <head>
-      <meta charset='utf-8'>
-      <script src='webgpu.js'></script>
-   </head>
-   <body>
-      <canvas id='e_canvas'>
-      <script>
+<head>
+   <meta charset="utf-8">
+   <title>hello-bind-groups</title>
+   <script src="webgpu.js"></script>
+</head>
+<body>
+<canvas id="c" width="400" height="300"></canvas>
+<script>
+const SHADER = `
+struct Uniforms {
+   color: vec4f,
+}
 
-const VS_SRC = `
-   #version 300 es
-   layout(std140) uniform;
+@group(0) @binding(0) var u_tex: texture_2d<f32>;
+@group(0) @binding(1) var u_samp: sampler;
+@group(0) @binding(2) var<uniform> u: Uniforms;
 
-   layout(location = 0) in vec2 a_pos;
-   out vec2 v_pos;
+struct VSOut {
+   @builtin(position) pos: vec4f,
+   @location(0) uv: vec2f,
+}
 
-   //uniform webgpu_binding3 {
-   //   mat3 u_vert_mat;
-   //};
+@vertex
+fn vs_main(@location(0) pos: vec2f) -> VSOut {
+   var o: VSOut;
+   o.pos = vec4f(pos * 2.0 - vec2f(1.0, 1.0), 0.0, 1.0);
+   o.uv = pos;
+   return o;
+}
 
-   void main() {
-      gl_Position = vec4(a_pos * 2. - 1., 0, 1);
-      v_pos = a_pos;
-   }
-`.trim();
-
-const FS_SRC = `
-   #version 300 es
-   precision mediump float;
-   layout(std140) uniform;
-
-   in vec2 v_pos;
-   out lowp vec4 fd_color;
-
-   #define u_tex webgpu_group0_binding0_u_tex
-   uniform sampler2D u_tex;
-   // binding1 is u_tex's sampler object.
-   uniform webgpu_group0_binding2 {
-      vec4 u_color;
-   };
-
-   void main() {
-      fd_color = texture(u_tex, v_pos);
-      fd_color *= u_color;
-   }
-`.trim();
+@fragment
+fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
+   return textureSample(u_tex, u_samp, uv) * u.color;
+}
+`;
 
 (async () => {
    const adapter = await navigator.gpu.requestAdapter();
-   const dev = await adapter.requestDevice({
-      extensions: adapter.extensions,
+   if (!adapter) throw new Error('No GPU adapter (WebGL 2 required).');
+   const device = await adapter.requestDevice();
+   const context = c.getContext('webgpu');
+   const format = navigator.gpu.getPreferredCanvasFormat();
+   context.configure({ device, format });
+
+   const vdata = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
+   const vbuf = device.createBuffer({
+      size: vdata.byteLength,
+      usage: GPUBufferUsage.VERTEX,
+      mappedAtCreation: true,
    });
-   const q = dev.getQueue();
+   new Float32Array(vbuf.getMappedRange()).set(vdata);
+   vbuf.unmap();
 
-   const sc_context = e_canvas.getContext('gpu');
-   const sc = sc_context.configureSwapChain({
-      device: dev,
-      format: 'rgba8unorm',
+   const idata = new Uint16Array([0, 1, 2, 2, 1, 3]);
+   const ibuf = device.createBuffer({
+      size: idata.byteLength,
+      usage: GPUBufferUsage.INDEX,
+      mappedAtCreation: true,
    });
+   new Uint16Array(ibuf.getMappedRange()).set(idata);
+   ibuf.unmap();
 
-   const canvas_tex = sc.getCurrentTexture();
-   const canvas_t_view = canvas_tex.createDefaultView();
+   const ALIGN = 256;
+   const uData = new Float32Array(ALIGN / 4 + 4);
+   uData.set([1, 1, 1, 0.85]);
+   uData.set([1, 1, 0, 0.85], ALIGN / 4);
+   const ubuf = device.createBuffer({
+      size: uData.byteLength,
+      usage: GPUBufferUsage.UNIFORM,
+      mappedAtCreation: true,
+   });
+   new Float32Array(ubuf.getMappedRange()).set(uData);
+   ubuf.unmap();
 
-   // -
-
-   function make_buffer(dev, data, usage) {
-      let [buf, mab] = dev.createBufferMapped({
-         size: data.byteLength,
-         usage: usage,
-      });
-      new data.constructor(mab).set(data);
-      buf.unmap();
-      return buf;
-   }
-
-   const v_data = new Float32Array([
-      0, 0,
-      1, 0,
-      0, 1,
-      1, 1,
+   const texels = new Uint8Array([
+      255, 0, 255, 255,  0, 0, 0, 255,     255, 0, 255, 255,  0, 0, 0, 255,
+      0, 0, 0, 255,      255, 0, 255, 255, 0, 0, 0, 255,      255, 0, 255, 255,
+      255, 0, 255, 255,  0, 0, 0, 255,     255, 0, 255, 255,  0, 0, 0, 255,
+      0, 0, 0, 255,      255, 0, 255, 255, 0, 0, 0, 255,      255, 0, 255, 255,
    ]);
-   const vbuf = make_buffer(dev, v_data, GPUBufferUsage.VERTEX);
-   const ibuf = make_buffer(dev, new Uint16Array([0, 1, 3, 2, 1, 3]), GPUBufferUsage.INDEX);
-
-   const UNIFORM_OFFSET_ALIGN = 256;
-   const u_color_data = new Float32Array(UNIFORM_OFFSET_ALIGN/4 + 4);
-   u_color_data.set([1, 1, 1, 0.5]);
-   u_color_data.set([1, 1, 0, 0.5], UNIFORM_OFFSET_ALIGN/4);
-   const u_color_buf = make_buffer(dev, u_color_data, GPUBufferUsage.UNIFORM);
-
-   // -
-
-   const tex_data = new Uint8Array([
-      255,0,255,255, 0,0,0,255,     255,0,255,255, 0,0,0,255,
-      0,0,0,255,     255,0,255,255, 0,0,0,255,     255,0,255,255,
-      255,0,255,255, 0,0,0,255,     255,0,255,255, 0,0,0,255,
-      0,0,0,255,     255,0,255,255, 0,0,0,255,     255,0,255,255,
-   ]);
-   const tex_buf = make_buffer(dev, tex_data, GPUBufferUsage.COPY_SRC);
-
-   const tex = dev.createTexture({
-      size: [4, 4, 1],
+   const texture = device.createTexture({
+      size: [4, 4],
       format: 'rgba8unorm',
-      usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.SAMPLED,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
    });
-   const t_view = tex.createDefaultView();
-   const sampler = dev.createSampler();
+   device.queue.writeTexture({ texture }, texels, { bytesPerRow: 16 }, [4, 4]);
+   const sampler = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' });
 
-   // -
-
-   const v_mod = dev.createShaderModule({code: VS_SRC});
-   const f_mod = dev.createShaderModule({code: FS_SRC});
-
-   const bg_layout = dev.createBindGroupLayout({
-      bindings: [{
-      //   binding: 3,
-      //   visibility: GPUShaderStageBit.VERTEX,
-      //   type: 'uniform-buffer',
-      //   dynamic: true,
-      //},{
-         binding: 0,
-         visibility: GPUShaderStageBit.FRAGMENT,
-         type: 'sampled-texture',
-         textureDimension: '2d',
-      },{
-         binding: 1,
-         visibility: GPUShaderStageBit.FRAGMENT,
-         type: 'sampler',
-      },{
-         binding: 2,
-         visibility: GPUShaderStageBit.FRAGMENT,
-         type: 'uniform-buffer',
-         dynamic: true,
-      }],
-   });
-
-   const p_layout = dev.createPipelineLayout({
-      bindGroupLayouts: [bg_layout],
-   });
-
-   const bg = dev.createBindGroup({
-      layout: bg_layout,
-      bindings: [{
-         binding: 0,
-         resource: t_view,
-      }, {
-         binding: 1,
-         resource: sampler,
-      }, {
-         binding: 2,
-         resource: {buffer: u_color_buf},
-      }],
-   });
-
-   const rp = dev.createRenderPipeline({
-      layout: p_layout,
-      vertexStage: {
-         module: v_mod,
-         entryPoint: 'main',
-      },
-      fragmentStage: {
-         module: f_mod,
-         entryPoint: 'main',
-      },
-      primitiveTopology: 'triangle-list',
-      rasterizationState: {},
-      colorStates: [{
-         format: 'rgba8unorm',
-         alphaBlend: {
-            srcFactor: 'one',
-            dstFactor: 'one-minus-src-alpha',
-         },
-         colorBlend: {
-            srcFactor: 'src-alpha',
-            dstFactor: 'one-minus-src-alpha',
-         },
-      }],
-      vertexInput: {
-         indexFormat: 'uint16',
-         vertexBuffers: [{
-            stride: 4*2,
-            attributeSet: [{
-               format: 'float2',
-               shaderLocation: 0,
-               offset: 4*0,
-            }],
-         }],
-      },
-   });
-
-   // -
-
-   const cmd_enc = dev.createCommandEncoder({});
-   cmd_enc.copyBufferToTexture({
-      buffer: tex_buf,
-      rowPitch: 4*4,
-      imageHeight: 4*4*4,
-   },{
-      texture: tex,
-   }, [4, 4, 1]);
-   const pass = cmd_enc.beginRenderPass({
-      colorAttachments: [
-         {
-            attachment: canvas_t_view,
-            loadOp: 'clear',
-            storeOp: 'store',
-            clearColor: [0.1, 0.3, 0.1, 1],
-         }
+   const module = device.createShaderModule({ code: SHADER });
+   const bgl = device.createBindGroupLayout({
+      entries: [
+         { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+         { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+         { binding: 2, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform', hasDynamicOffset: true } },
       ],
    });
+   const layout = device.createPipelineLayout({ bindGroupLayouts: [bgl] });
+   const pipeline = device.createRenderPipeline({
+      layout,
+      vertex: {
+         module,
+         entryPoint: 'vs_main',
+         buffers: [{
+            arrayStride: 8,
+            attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }],
+         }],
+      },
+      fragment: {
+         module,
+         entryPoint: 'fs_main',
+         targets: [{
+            format,
+            blend: {
+               color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha' },
+               alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+            },
+         }],
+      },
+      primitive: { topology: 'triangle-list' },
+   });
+   const bg = device.createBindGroup({
+      layout: bgl,
+      entries: [
+         { binding: 0, resource: texture.createView() },
+         { binding: 1, resource: sampler },
+         { binding: 2, resource: { buffer: ubuf, size: 16 } },
+      ],
+   });
+
+   const encoder = device.createCommandEncoder();
+   const pass = encoder.beginRenderPass({
+      colorAttachments: [{
+         view: context.getCurrentTexture().createView(),
+         clearValue: [0.1, 0.3, 0.1, 1],
+         loadOp: 'clear',
+         storeOp: 'store',
+      }],
+   });
+   pass.setPipeline(pipeline);
+   pass.setVertexBuffer(0, vbuf);
+   pass.setIndexBuffer(ibuf, 'uint16');
    pass.setBindGroup(0, bg, [0]);
-   pass.setPipeline(rp);
-   pass.setVertexBuffers(0, [vbuf], [0]);
-   pass.draw(3, 1, 0, 0);
-   pass.setBindGroup(0, bg, [UNIFORM_OFFSET_ALIGN]);
-   pass.setIndexBuffer(ibuf, 0);
-   pass.drawIndexed(3, 1, 0, 0, 0);
-   pass.endPass();
-
-   const cbuf = cmd_enc.finish();
-   q.submit([cbuf]);
-})();
-
-      </script>
-   </body>
+   pass.drawIndexed(6);
+   pass.setBindGroup(0, bg, [ALIGN]);
+   pass.draw(3);
+   pass.end();
+   device.queue.submit([encoder.finish()]);
+   console.log('hello-bind-groups: submitted');
+})().catch((e) => console.error(e));
+</script>
+</body>
 </html>

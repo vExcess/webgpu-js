@@ -1,151 +1,120 @@
 <!DOCTYPE html>
 <html>
-   <head>
-      <meta charset='utf-8'>
-      <script src='webgpu.js'></script>
-   </head>
-   <body>
-      <canvas id='e_canvas'>
-      <script>
+<head>
+   <meta charset="utf-8">
+   <title>hello-blend</title>
+   <script src="webgpu.js"></script>
+</head>
+<body>
+<canvas id="c" width="400" height="300"></canvas>
+<script>
+const SHADER = `
+struct VSOut {
+   @builtin(position) pos: vec4f,
+   @location(0) color: vec4f,
+}
 
-const VS_SRC = `
-   #version 300 es
-   layout(location = 0) in vec2 a_pos;
-   layout(location = 1) in lowp vec4 a_color;
-   out lowp vec4 v_color;
+@vertex
+fn vs_main(@location(0) pos: vec2f, @location(1) color: vec4f) -> VSOut {
+   var o: VSOut;
+   o.pos = vec4f(pos, 0.0, 1.0);
+   o.color = color;
+   return o;
+}
 
-   void main() {
-      gl_Position = vec4(a_pos, 0, 1);
-      v_color = a_color;
-   }
-`.trim();
-
-const FS_SRC = `
-   #version 300 es
-   in lowp vec4 v_color;
-   out lowp vec4 fd_color;
-
-   void main() {
-      fd_color = v_color;
-   }
-`.trim();
+@fragment
+fn fs_main(@location(0) color: vec4f) -> @location(0) vec4f {
+   return color;
+}
+`;
 
 (async () => {
    const adapter = await navigator.gpu.requestAdapter();
-   const dev = await adapter.requestDevice({
-      extensions: adapter.extensions,
-   });
-   const q = dev.getQueue();
+   if (!adapter) throw new Error('No GPU adapter (WebGL 2 required).');
+   const device = await adapter.requestDevice();
+   const context = c.getContext('webgpu');
+   const format = navigator.gpu.getPreferredCanvasFormat();
+   context.configure({ device, format });
 
-   const sc_context = e_canvas.getContext('gpu');
-   const sc = sc_context.configureSwapChain({
-      device: dev,
-      format: 'rgba8unorm',
-   });
-
-   const tex = sc.getCurrentTexture();
-   const t_view = tex.createDefaultView();
-
-   // -
-
-   function make_buffer(dev, data, usage) {
-      let [buf, mab] = dev.createBufferMapped({
-         size: data.byteLength,
-         usage: usage,
-      });
-      new data.constructor(mab).set(data);
-      buf.unmap();
-      return buf;
-   }
-
-   const v_data = new Float32Array([
-      -0.5, -0.5, 0,
-       0.5, -0.5, 0,
-      -0.5,  0.5, 0,
-       0.5,  0.5, 0,
-   ]);
-   const v_data_u8 = new Uint8Array(v_data.buffer);
-   v_data_u8.set([255, 0, 0, 127], 12*0+4*2);
-   v_data_u8.set([0, 255, 0, 127], 12*1+4*2);
-   v_data_u8.set([0, 0, 255, 127], 12*2+4*2);
-   v_data_u8.set([255, 255, 0, 127], 12*3+4*2);
-
-   const vbuf = make_buffer(dev, v_data, GPUBufferUsage.VERTEX);
-   const ibuf = make_buffer(dev, new Uint16Array([0, 1, 3]), GPUBufferUsage.INDEX);
-
-   // -
-
-   const v_mod = dev.createShaderModule({code: VS_SRC});
-   const f_mod = dev.createShaderModule({code: FS_SRC});
-
-   const layout = dev.createPipelineLayout({
-      bindGroupLayouts: [],
+   const data = new ArrayBuffer(64);
+   const f32 = new Float32Array(data);
+   const u8 = new Uint8Array(data);
+   const verts = [
+      [-0.5, -0.5, 255, 0, 0, 127],
+      [ 0.5, -0.5, 0, 255, 0, 127],
+      [-0.5,  0.5, 0, 0, 255, 127],
+      [ 0.5,  0.5, 255, 255, 0, 127],
+   ];
+   verts.forEach((v, i) => {
+      f32[i * 4] = v[0];
+      f32[i * 4 + 1] = v[1];
+      u8[i * 16 + 8] = v[2];
+      u8[i * 16 + 9] = v[3];
+      u8[i * 16 + 10] = v[4];
+      u8[i * 16 + 11] = v[5];
    });
 
-   const rp = dev.createRenderPipeline({
-      layout: layout,
-      vertexStage: {
-         module: v_mod,
-         entryPoint: 'main',
-      },
-      fragmentStage: {
-         module: f_mod,
-         entryPoint: 'main',
-      },
-      primitiveTopology: 'triangle-list',
-      rasterizationState: {},
-      colorStates: [{
-         format: 'rgba8unorm',
-         alphaBlend: {
-            srcFactor: 'one',
-            dstFactor: 'one-minus-src-alpha',
-         },
-         colorBlend: {
-            srcFactor: 'src-alpha',
-            dstFactor: 'one-minus-src-alpha',
-         },
-      }],
-      vertexInput: {
-         indexFormat: 'uint16',
-         vertexBuffers: [{
-            stride: 4*3,
-            attributeSet: [{
-               format: 'float2',
-               shaderLocation: 0,
-               offset: 4*0,
-            },{
-               format: 'uchar4norm',
-               shaderLocation: 1,
-               offset: 4*2,
-            }],
+   const vbuf = device.createBuffer({
+      size: data.byteLength,
+      usage: GPUBufferUsage.VERTEX,
+      mappedAtCreation: true,
+   });
+   new Uint8Array(vbuf.getMappedRange()).set(u8);
+   vbuf.unmap();
+
+   const ibuf = device.createBuffer({
+      size: 6 * 2,
+      usage: GPUBufferUsage.INDEX,
+      mappedAtCreation: true,
+   });
+   new Uint16Array(ibuf.getMappedRange()).set([0, 1, 2, 2, 1, 3]);
+   ibuf.unmap();
+
+   const module = device.createShaderModule({ code: SHADER });
+   const pipeline = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: {
+         module,
+         entryPoint: 'vs_main',
+         buffers: [{
+            arrayStride: 16,
+            attributes: [
+               { shaderLocation: 0, offset: 0, format: 'float32x2' },
+               { shaderLocation: 1, offset: 8, format: 'unorm8x4' },
+            ],
          }],
       },
+      fragment: {
+         module,
+         entryPoint: 'fs_main',
+         targets: [{
+            format,
+            blend: {
+               color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+               alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            },
+         }],
+      },
+      primitive: { topology: 'triangle-list' },
    });
 
-   // -
-
-   const cmd_enc = dev.createCommandEncoder({});
-   const pass = cmd_enc.beginRenderPass({
-      colorAttachments: [
-         {
-            attachment: t_view,
-            loadOp: 'clear',
-            storeOp: 'store',
-            clearColor: [0.1, 0.3, 0.1, 1],
-         }
-      ],
+   const encoder = device.createCommandEncoder();
+   const pass = encoder.beginRenderPass({
+      colorAttachments: [{
+         view: context.getCurrentTexture().createView(),
+         clearValue: [0.1, 0.3, 0.1, 1],
+         loadOp: 'clear',
+         storeOp: 'store',
+      }],
    });
-   pass.setPipeline(rp);
-   pass.setVertexBuffers(0, [vbuf], [0]);
-   pass.draw(3, 1, 0, 0);
-   pass.setIndexBuffer(ibuf, 0);
-   pass.drawIndexed(3, 1, 0, 0, 0);
-   pass.endPass();
-
-   const cbuf = cmd_enc.finish();
-   q.submit([cbuf]);
-})();
-
-      </script>
-   </body>
+   pass.setPipeline(pipeline);
+   pass.setVertexBuffer(0, vbuf);
+   pass.setIndexBuffer(ibuf, 'uint16');
+   pass.drawIndexed(6);
+   pass.end();
+   device.queue.submit([encoder.finish()]);
+   console.log('hello-blend: submitted');
+})().catch((e) => console.error(e));
+</script>
+</body>
 </html>
